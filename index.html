@@ -3,504 +3,440 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Receipt Scanner</title>
-  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
-    body { background: #f0f2f5; display: flex; justify-content: center; padding: 30px 16px; }
-    .container { width: 100%; max-width: 540px; }
-    h1 { text-align: center; color: #333; margin-bottom: 24px; }
-    .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; }
-    .card h3 { margin-bottom: 14px; color: #111; }
-    input[type=text], input[type=email], input[type=password],
-    input[type=number], input[type=date], select {
-      width: 100%; padding: 10px 14px; border: 1px solid #ddd;
-      border-radius: 8px; margin-bottom: 10px; font-size: 14px; background: white;
-    }
-    button { width: 100%; padding: 11px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: bold; margin-bottom: 8px; }
-    .btn-primary   { background: #4f46e5; color: white; }
-    .btn-secondary { background: #e5e7eb; color: #333; }
-    .btn-logout    { background: #fee2e2; color: #dc2626; }
-    .btn-upload    { background: #10b981; color: white; }
-    .btn-excel     { background: #16a34a; color: white; }
-    .btn-clear     { background: #f3f4f6; color: #555; }
-    .btn-delete    { background: none; border: none; color: #dc2626; cursor: pointer; font-size: 18px; padding: 0; width: auto; margin: 0; }
-    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-    .row2 > * { margin-bottom: 0; }
-    .receipt-item { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; display: flex; gap: 12px; align-items: center; }
-    .receipt-item img { width: 60px; height: 60px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
-    .receipt-info { flex: 1; }
-    .receipt-info strong { font-size: 15px; color: #111; }
-    .receipt-info p { font-size: 12px; color: #666; margin-top: 3px; }
-    .cat-badge { display: inline-block; background: #ede9fe; color: #4f46e5; font-size: 11px; padding: 2px 8px; border-radius: 12px; margin-top: 3px; }
-    .msg { text-align: center; font-size: 13px; color: #6b7280; margin-top: 6px; }
-    .error { color: #dc2626; }
-    #auth-section, #app-section { display: none; }
-    .summary-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-    .summary-box { background: #f9fafb; border-radius: 8px; padding: 12px; text-align: center; }
-    .summary-box span { display: block; font-size: 11px; color: #888; margin-bottom: 4px; }
-    .summary-box strong { font-size: 18px; color: #4f46e5; }
-    .filter-section { border-top: 1px solid #f0f0f0; padding-top: 14px; margin-top: 4px; }
-    .filter-section h4 { font-size: 13px; color: #888; margin-bottom: 10px; }
-    .search-bar { display: flex; gap: 8px; margin-bottom: 10px; }
-    .search-bar input { margin-bottom: 0; flex: 1; }
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+<title>סורק קבלות</title>
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:Arial,sans-serif}
+body{background:#f0f2f5;display:flex;justify-content:center;padding:20px 12px;min-height:100vh}
+.wrap{width:100%;max-width:560px}
+h1{text-align:center;color:#333;margin-bottom:20px;font-size:22px}
+.card{background:#fff;border-radius:12px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,.08);margin-bottom:16px}
+.card h3{margin-bottom:14px;color:#111;font-size:16px}
+input,select,textarea{width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;
+  margin-bottom:10px;font-size:14px;background:#fff;font-family:Arial,sans-serif}
+textarea{height:60px;resize:vertical}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.row2>*{margin-bottom:0}
+button{width:100%;padding:10px;border:none;border-radius:8px;cursor:pointer;
+  font-size:14px;font-weight:bold;margin-bottom:8px}
+.bp{background:#4f46e5;color:#fff} .bs{background:#e5e7eb;color:#333}
+.bg{background:#10b981;color:#fff} .be{background:#16a34a;color:#fff}
+.br{background:#fee2e2;color:#dc2626} .bc{background:#f3f4f6;color:#555}
+.bd{background:none;border:none;color:#dc2626;cursor:pointer;width:auto;margin:0;padding:4px 8px;font-size:18px}
 
-    /* ── Camera UI ── */
-    .cam-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
-    .cam-tab { flex: 1; padding: 9px; border: 2px solid #ddd; border-radius: 8px; background: white; color: #555; cursor: pointer; font-size: 13px; font-weight: bold; }
-    .cam-tab.active { border-color: #4f46e5; color: #4f46e5; background: #ede9fe; }
-    #camera-section { display: none; }
-    #camera-wrap {
-      position: relative; width: 100%; border-radius: 10px;
-      overflow: hidden; background: #000; aspect-ratio: 4/3;
-      touch-action: none;
-    }
-    #video { width: 100%; height: 100%; object-fit: cover; display: block; }
-    #focus-ring {
-      position: absolute; width: 60px; height: 60px;
-      border: 2px solid #fff; border-radius: 50%;
-      pointer-events: none; display: none;
-      transform: translate(-50%, -50%);
-      box-shadow: 0 0 0 2px rgba(0,0,0,0.4);
-      transition: opacity 0.4s;
-    }
-    .cam-controls {
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 8px; margin-top: 10px;
-    }
-    .cam-controls button { margin: 0; width: auto; padding: 9px 14px; font-size: 18px; }
-    .zoom-bar { flex: 1; display: flex; align-items: center; gap: 6px; }
-    .zoom-bar input[type=range] { flex: 1; margin: 0; padding: 0; border: none; background: none; }
-    #zoom-label { font-size: 12px; color: #666; min-width: 32px; text-align: center; }
-    #capture-btn { background: #4f46e5; color: white; border-radius: 50%; width: 52px !important; height: 52px; font-size: 22px; display: flex; align-items: center; justify-content: center; padding: 0; }
-    #flip-btn   { background: #e5e7eb; border-radius: 8px; }
-    #canvas     { display: none; }
-    #preview    { width: 100%; border-radius: 8px; margin-bottom: 10px; display: none; }
-    .upload-label { display: block; border: 2px dashed #4f46e5; border-radius: 8px; padding: 18px; text-align: center; cursor: pointer; color: #4f46e5; margin-bottom: 10px; font-size: 14px; }
-  </style>
+/* tabs */
+.tabs{display:flex;gap:8px;margin-bottom:12px}
+.tab{flex:1;padding:9px;border:2px solid #ddd;border-radius:8px;background:#fff;
+  color:#555;cursor:pointer;font-size:13px;font-weight:bold}
+.tab.on{border-color:#4f46e5;color:#4f46e5;background:#ede9fe}
+
+/* camera */
+#cam-box{position:relative;width:100%;aspect-ratio:4/3;background:#000;
+  border-radius:10px;overflow:hidden;touch-action:none}
+#video{width:100%;height:100%;object-fit:cover;display:block}
+#focus-ring{position:absolute;width:56px;height:56px;border:2px solid #fff;
+  border-radius:50%;pointer-events:none;display:none;transform:translate(-50%,-50%);
+  box-shadow:0 0 0 2px rgba(0,0,0,.5);transition:opacity .4s}
+.cam-ctrl{display:flex;align-items:center;gap:8px;margin-top:8px}
+.cam-ctrl button{margin:0;width:auto;padding:8px 14px;font-size:18px}
+.zoom-wrap{flex:1;display:flex;align-items:center;gap:6px;font-size:12px;color:#666}
+.zoom-wrap input{flex:1;margin:0;padding:0;border:none;background:none}
+#snap-btn{background:#4f46e5;color:#fff;border-radius:50%;width:52px!important;
+  height:52px;font-size:22px;padding:0;display:flex;align-items:center;justify-content:center}
+#canvas{display:none}
+#preview{width:100%;border-radius:8px;margin-bottom:10px;display:none;max-height:220px;object-fit:cover}
+.upload-lbl{display:block;border:2px dashed #4f46e5;border-radius:8px;padding:16px;
+  text-align:center;cursor:pointer;color:#4f46e5;margin-bottom:10px;font-size:14px}
+
+/* OCR status */
+#ocr-status{font-size:12px;color:#4f46e5;text-align:center;min-height:18px;margin-bottom:8px}
+
+/* list */
+.rec-item{border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;
+  margin-bottom:10px;display:flex;gap:10px;align-items:flex-start}
+.rec-item img{width:58px;height:58px;object-fit:cover;border-radius:6px;flex-shrink:0}
+.rec-info{flex:1;font-size:13px}
+.rec-info strong{font-size:14px;color:#111}
+.rec-info p{color:#666;margin-top:3px;line-height:1.5}
+.badge{display:inline-block;background:#ede9fe;color:#4f46e5;
+  font-size:11px;padding:2px 8px;border-radius:12px;margin-top:3px}
+.msg{text-align:center;font-size:13px;color:#6b7280;margin-top:6px}
+.err{color:#dc2626}
+.sum-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.sum-box{background:#f9fafb;border-radius:8px;padding:10px;text-align:center}
+.sum-box span{display:block;font-size:11px;color:#888;margin-bottom:4px}
+.sum-box strong{font-size:17px;color:#4f46e5}
+label.lbl{font-size:12px;color:#888;margin-bottom:3px;display:block}
+</style>
 </head>
 <body>
-<div class="container">
-  <h1>🧾 Receipt Scanner</h1>
+<div class="wrap">
+<h1>🧾 סורק קבלות</h1>
 
-  <!-- AUTH -->
-  <div class="card" id="auth-section">
-    <input id="email" type="email" placeholder="אימייל"/>
-    <input id="password" type="password" placeholder="סיסמה"/>
-    <button class="btn-primary" onclick="login()">התחבר</button>
-    <button class="btn-secondary" onclick="register()">הרשמה</button>
-    <p class="msg error" id="auth-error"></p>
-  </div>
-
-  <!-- APP -->
-  <div id="app-section">
-    <button class="btn-logout" onclick="logout()">🚪 התנתק</button>
-
-    <!-- SUMMARY -->
-    <div class="card">
-      <h3>📊 סיכום הוצאות</h3>
-      <div class="summary-grid">
-        <div class="summary-box"><span>קבלות</span><strong id="s-count">-</strong></div>
-        <div class="summary-box"><span>סה"כ</span><strong id="s-total">-</strong></div>
-        <div class="summary-box"><span>ממוצע</span><strong id="s-avg">-</strong></div>
-      </div>
-    </div>
-
-    <!-- UPLOAD / CAMERA -->
-    <div class="card">
-      <h3>➕ הוסף קבלה</h3>
-
-      <!-- Tabs -->
-      <div class="cam-tabs">
-        <button class="cam-tab active" id="tab-file"   onclick="switchTab('file')">📁 בחר קובץ</button>
-        <button class="cam-tab"        id="tab-camera" onclick="switchTab('camera')">📷 צלם עכשיו</button>
-      </div>
-
-      <!-- File upload -->
-      <div id="file-section">
-        <label class="upload-label" for="file-input">📁 לחץ לבחירת תמונה</label>
-        <input id="file-input" type="file" accept="image/*" style="display:none" onchange="onFileChosen(event)"/>
-      </div>
-
-      <!-- Camera -->
-      <div id="camera-section">
-        <div id="camera-wrap">
-          <video id="video" autoplay playsinline muted></video>
-          <div id="focus-ring"></div>
-        </div>
-        <canvas id="canvas"></canvas>
-        <div class="cam-controls">
-          <button id="flip-btn" onclick="flipCamera()" title="הפוך מצלמה">🔄</button>
-          <div class="zoom-bar">
-            <span>🔍−</span>
-            <input type="range" id="zoom-slider" min="1" max="5" step="0.1" value="1" oninput="setZoom(this.value)"/>
-            <span>🔍+</span>
-            <span id="zoom-label">×1.0</span>
-          </div>
-          <button id="capture-btn" onclick="capturePhoto()" title="צלם">📸</button>
-        </div>
-      </div>
-
-      <!-- Preview (shared) -->
-      <img id="preview"/>
-
-      <!-- Fields -->
-      <input id="receipt-name" type="text" placeholder="שם הקבלה"/>
-      <div class="row2">
-        <input id="receipt-amount" type="number" placeholder="סכום (₪)" style="margin-bottom:0"/>
-        <select id="receipt-category" style="margin-bottom:0">
-          <option value="">-- קטגוריה --</option>
-          <option>🛒 סופרמרקט</option>
-          <option>⛽ דלק</option>
-          <option>🍽️ מסעדה</option>
-          <option>👕 בגדים</option>
-          <option>💊 תרופות/בריאות</option>
-          <option>🔌 חשמל/חשבונות</option>
-          <option>🎉 בילויים</option>
-          <option>📦 אחר</option>
-        </select>
-      </div>
-      <button class="btn-upload" style="margin-top:10px" onclick="uploadReceipt()">⬆️ שמור קבלה</button>
-      <p class="msg" id="upload-msg"></p>
-    </div>
-
-    <!-- RECEIPTS -->
-    <div class="card">
-      <h3>📋 הקבלות שלי</h3>
-      <div class="search-bar">
-        <input id="search-input" type="text" placeholder="🔍 חפש לפי שם..." oninput="applyFilters()"/>
-      </div>
-      <div class="filter-section">
-        <h4>🎛️ סינון מתקדם</h4>
-        <div class="row2">
-          <input id="filter-from" type="date" onchange="applyFilters()" style="margin-bottom:0"/>
-          <input id="filter-to"   type="date" onchange="applyFilters()" style="margin-bottom:0"/>
-        </div>
-        <select id="filter-category" onchange="applyFilters()" style="margin-top:10px">
-          <option value="">כל הקטגוריות</option>
-          <option>🛒 סופרמרקט</option>
-          <option>⛽ דלק</option>
-          <option>🍽️ מסעדה</option>
-          <option>👕 בגדים</option>
-          <option>💊 תרופות/בריאות</option>
-          <option>🔌 חשמל/חשבונות</option>
-          <option>🎉 בילויים</option>
-          <option>📦 אחר</option>
-        </select>
-        <button class="btn-clear" onclick="clearFilters()">✖️ נקה סינון</button>
-      </div>
-      <div id="receipts-list" style="margin-top:14px"><p class="msg">טוען...</p></div>
-      <button class="btn-excel" onclick="exportExcel()" style="margin-top:10px">📥 ייצוא לאקסל</button>
-    </div>
+<!-- summary -->
+<div class="card">
+  <h3>📊 סיכום</h3>
+  <div class="sum-grid">
+    <div class="sum-box"><span>קבלות</span><strong id="s-n">0</strong></div>
+    <div class="sum-box"><span>לפני מע"מ</span><strong id="s-pre">₪0</strong></div>
+    <div class="sum-box"><span>אחרי מע"מ</span><strong id="s-post">₪0</strong></div>
   </div>
 </div>
 
-<script type="module">
+<!-- add receipt -->
+<div class="card">
+  <h3>➕ הוסף קבלה</h3>
+  <div class="tabs">
+    <button class="tab on" id="t-file"   onclick="swTab('file')">📁 קובץ / גלריה</button>
+    <button class="tab"    id="t-cam"    onclick="swTab('cam')">📷 מצלמה</button>
+  </div>
+
+  <!-- file -->
+  <div id="sec-file">
+    <label class="upload-lbl" for="file-in">📁 לחץ לבחירת תמונה</label>
+    <input id="file-in" type="file" accept="image/*" style="display:none" onchange="onFile(event)"/>
+  </div>
+
+  <!-- camera -->
+  <div id="sec-cam" style="display:none">
+    <div id="cam-box">
+      <video id="video" autoplay playsinline muted></video>
+      <div id="focus-ring"></div>
+    </div>
+    <canvas id="canvas"></canvas>
+    <div class="cam-ctrl">
+      <button class="bs" style="border-radius:8px" onclick="flipCam()" title="הפוך">🔄</button>
+      <div class="zoom-wrap">
+        <span>−</span>
+        <input type="range" id="zslider" min="1" max="5" step="0.1" value="1" oninput="setZoom(+this.value)"/>
+        <span>+</span>
+        <span id="zlbl">×1.0</span>
+      </div>
+      <button id="snap-btn" onclick="snap()" title="צלם">📸</button>
+    </div>
+  </div>
+
+  <!-- preview -->
+  <img id="preview"/>
+  <div id="ocr-status"></div>
+
+  <!-- fields -->
+  <label class="lbl">תאריך הוצאה</label>
+  <input id="f-date" type="date"/>
+
+  <label class="lbl">סוג הוצאה</label>
+  <select id="f-type">
+    <option value="">-- בחר סוג --</option>
+    <option>🚗 רכב</option>
+    <option>📎 משרדיות</option>
+    <option>🏠 בית</option>
+    <option>👕 ביגוד</option>
+    <option>📦 אחר</option>
+  </select>
+
+  <label class="lbl">תיאור ההוצאה</label>
+  <textarea id="f-desc" placeholder="תיאור חופשי..."></textarea>
+
+  <label class="lbl">שם בית העסק</label>
+  <input id="f-biz" type="text" placeholder="יזוהה אוטומטית מ-OCR"/>
+
+  <div class="row2">
+    <div>
+      <label class="lbl">מספר חשבונית</label>
+      <input id="f-inv" type="text" placeholder="מ-OCR / ידני" style="margin-bottom:0"/>
+    </div>
+    <div>
+      <label class="lbl">סכום לפני מע"מ (₪)</label>
+      <input id="f-pre" type="number" placeholder="0.00" style="margin-bottom:0"/>
+    </div>
+  </div>
+  <label class="lbl" style="margin-top:10px">סכום אחרי מע"מ (₪)</label>
+  <input id="f-post" type="number" placeholder="יחושב אוטומטית אם ריק"/>
+
+  <button class="bg" style="margin-top:6px" onclick="saveReceipt()">💾 שמור קבלה</button>
+  <p class="msg" id="save-msg"></p>
+</div>
+
+<!-- list -->
+<div class="card">
+  <h3>📋 קבלות שמורות</h3>
+  <input id="srch" type="text" placeholder="🔍 חפש..." oninput="render()"/>
+  <div id="list"><p class="msg">אין קבלות עדיין</p></div>
+  <button class="be" onclick="exportXL()" style="margin-top:6px">📥 ייצוא לאקסל</button>
+  <button class="bc" onclick="clearAll()" style="margin-top:0">🗑️ נקה הכל</button>
+</div>
+</div>
+
+<script>
 // Code Generated by Sidekick is for learning and experimentation purposes only.
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged }
-  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, collection, addDoc, deleteDoc, doc, query, where, getDocs }
-  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+const STORE = 'receipts_v2';
+let receipts = JSON.parse(localStorage.getItem(STORE) || '[]');
+let imgBlob   = null;
+let stream    = null;
+let vTrack    = null;
+let facing    = 'environment';
+let zoom      = 1;
+let pinchD0   = null, pinchZ0 = 1;
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDkxJQxvwY1ZvNkqIpcgkgeRMkkbnfHLu4",
-  authDomain: "receipt-scanner-9a8d6.firebaseapp.com",
-  projectId: "receipt-scanner-9a8d6",
-  storageBucket: "receipt-scanner-9a8d6.firebasestorage.app",
-  messagingSenderId: "954573164722",
-  appId: "1:954573164722:web:33a9e330c8e851aa58b9ab"
-};
-const CLOUD_NAME    = "root";
-const UPLOAD_PRESET = "receipt_upload";
+// ── tabs ──────────────────────────────────────────────
+function swTab(t){
+  const isCam = t==='cam';
+  document.getElementById('sec-file').style.display = isCam?'none':'block';
+  document.getElementById('sec-cam').style.display  = isCam?'block':'none';
+  document.getElementById('t-file').classList.toggle('on',!isCam);
+  document.getElementById('t-cam').classList.toggle('on', isCam);
+  isCam ? startCam() : stopCam();
+}
 
-const app  = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db   = getFirestore(app);
+// ── camera ────────────────────────────────────────────
+async function startCam(){
+  try {
+    stopCam();
+    stream = await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:facing, width:{ideal:1920}, height:{ideal:1080}}, audio:false
+    });
+    const v = document.getElementById('video');
+    v.srcObject = stream;
+    await v.play();
+    vTrack = stream.getVideoTracks()[0];
+    zoom=1;
+    document.getElementById('zslider').value=1;
+    document.getElementById('zlbl').textContent='×1.0';
+    v.style.transform='';
+    bindTouch();
+  } catch(e){ alert('שגיאת מצלמה: '+e.message); }
+}
 
-let currentUser  = null;
-let allReceipts  = [];
-let filtered     = [];
-let capturedBlob = null;
+function stopCam(){
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; vTrack=null; }
+}
 
-// ─── Camera state ────────────────────────────────────
-let stream       = null;
-let videoTrack   = null;
-let facingMode   = "environment";
-let currentZoom  = 1;
-let pinchStart   = null;
-let pinchZoomStart = 1;
+function flipCam(){ facing = facing==='environment'?'user':'environment'; startCam(); }
 
-// ─── Auth ─────────────────────────────────────────────
-onAuthStateChanged(auth, user => {
-  currentUser = user;
-  document.getElementById("auth-section").style.display = user ? "none"  : "block";
-  document.getElementById("app-section").style.display  = user ? "block" : "none";
-  if (user) loadReceipts();
+function setZoom(v){
+  zoom=v;
+  document.getElementById('zlbl').textContent='×'+v.toFixed(1);
+  if(!vTrack) return;
+  const caps=vTrack.getCapabilities?.();
+  if(caps?.zoom){
+    vTrack.applyConstraints({advanced:[{zoom:Math.min(Math.max(v,caps.zoom.min),caps.zoom.max)}]}).catch(()=>{});
+  } else {
+    document.getElementById('video').style.transform=`scale(${v})`;
+  }
+}
+
+function bindTouch(){
+  const box=document.getElementById('cam-box');
+  box.onclick=e=>{
+    const r=box.getBoundingClientRect();
+    showFocus(e.clientX-r.left, e.clientY-r.top);
+    if(!vTrack) return;
+    const x=(e.clientX-r.left)/r.width, y=(e.clientY-r.top)/r.height;
+    vTrack.applyConstraints({advanced:[{pointsOfInterest:[{x,y}]},{focusMode:'manual'}]}).catch(()=>{});
+  };
+  box.addEventListener('touchstart',e=>{
+    if(e.touches.length===2){ pinchD0=dist2(e); pinchZ0=zoom; }
+  },{passive:true});
+  box.addEventListener('touchmove',e=>{
+    if(e.touches.length===2&&pinchD0){
+      const nz=Math.min(Math.max(pinchZ0*(dist2(e)/pinchD0),1),5);
+      document.getElementById('zslider').value=nz;
+      setZoom(nz);
+    }
+  },{passive:true});
+  box.addEventListener('touchend',()=>pinchD0=null,{passive:true});
+}
+
+function dist2(e){
+  const dx=e.touches[0].clientX-e.touches[1].clientX;
+  const dy=e.touches[0].clientY-e.touches[1].clientY;
+  return Math.sqrt(dx*dx+dy*dy);
+}
+
+function showFocus(x,y){
+  const r=document.getElementById('focus-ring');
+  r.style.left=x+'px'; r.style.top=y+'px';
+  r.style.display='block'; r.style.opacity='1';
+  setTimeout(()=>{ r.style.opacity='0'; setTimeout(()=>r.style.display='none',400); },800);
+}
+
+function snap(){
+  const v=document.getElementById('video');
+  const c=document.getElementById('canvas');
+  c.width=v.videoWidth||640; c.height=v.videoHeight||480;
+  c.getContext('2d').drawImage(v,0,0);
+  c.toBlob(b=>{ imgBlob=b; showPreview(b); runOCR(b); },'image/jpeg',0.92);
+  stopCam();
+  document.getElementById('sec-cam').style.display='none';
+  document.getElementById('t-file').classList.add('on');
+  document.getElementById('t-cam').classList.remove('on');
+}
+
+function onFile(e){
+  const f=e.target.files[0]; if(!f) return;
+  imgBlob=f; showPreview(f); runOCR(f);
+}
+
+function showPreview(blob){
+  const p=document.getElementById('preview');
+  p.src=URL.createObjectURL(blob); p.style.display='block';
+}
+
+// ── OCR ───────────────────────────────────────────────
+async function runOCR(blob){
+  const st=document.getElementById('ocr-status');
+  st.textContent='🔍 מנתח קבלה...';
+  try {
+    const { data:{text} } = await Tesseract.recognize(blob,['heb','eng'],{logger:()=>{}});
+    fillFromOCR(text);
+    st.textContent='✅ זיהוי הושלם';
+  } catch(e){ st.textContent='⚠️ OCR נכשל — מלא ידנית'; }
+}
+
+function fillFromOCR(txt){
+  // invoice number
+  const invM = txt.match(/(?:חשבונית|invoice|inv[#\s.:]*|מס['\s]*[.:])[\s#:]*(\d{4,})/i);
+  if(invM) document.getElementById('f-inv').value = invM[1];
+
+  // amounts — find all currency-like numbers
+  const amounts = [...txt.matchAll(/(?:₪|nis|ils|ש"ח)?\s*([\d,]+\.?\d{0,2})\s*(?:₪|nis|ils|ש"ח)?/gi)]
+    .map(m=>parseFloat(m[1].replace(',',''))).filter(n=>n>0).sort((a,b)=>b-a);
+
+  if(amounts.length>=2){
+    const post=amounts[0], pre=amounts[1];
+    document.getElementById('f-post').value=post.toFixed(2);
+    document.getElementById('f-pre').value=pre.toFixed(2);
+  } else if(amounts.length===1){
+    const post=amounts[0];
+    document.getElementById('f-post').value=post.toFixed(2);
+    document.getElementById('f-pre').value=(post/1.17).toFixed(2);
+  }
+
+  // business name — first non-empty line
+  const lines=txt.split('\n').map(l=>l.trim()).filter(l=>l.length>2);
+  if(lines.length){ document.getElementById('f-biz').value=lines[0].substring(0,60); }
+
+  // date
+  const dateM=txt.match(/(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{2,4})/);
+  if(dateM){
+    const [,d,m,y]=dateM;
+    const fy=y.length===2?'20'+y:y;
+    document.getElementById('f-date').value=`${fy}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+  }
+}
+
+// auto-calc VAT on pre-tax blur
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('f-pre').addEventListener('blur',()=>{
+    const v=parseFloat(document.getElementById('f-pre').value);
+    if(v&&!document.getElementById('f-post').value)
+      document.getElementById('f-post').value=(v*1.17).toFixed(2);
+  });
+  render(); updateSum();
+  // set today as default date
+  document.getElementById('f-date').value=new Date().toISOString().slice(0,10);
 });
 
-window.login = async () => {
-  try { await signInWithEmailAndPassword(auth, document.getElementById("email").value, document.getElementById("password").value); }
-  catch (e) { document.getElementById("auth-error").textContent = "שגיאה: " + e.message; }
-};
-window.register = async () => {
-  try { await createUserWithEmailAndPassword(auth, document.getElementById("email").value, document.getElementById("password").value); }
-  catch (e) { document.getElementById("auth-error").textContent = "שגיאה: " + e.message; }
-};
-window.logout = () => { stopCamera(); signOut(auth); };
-
-// ─── Tabs ─────────────────────────────────────────────
-window.switchTab = (tab) => {
-  const isCamera = tab === "camera";
-  document.getElementById("file-section").style.display   = isCamera ? "none"  : "block";
-  document.getElementById("camera-section").style.display = isCamera ? "block" : "none";
-  document.getElementById("tab-file").classList.toggle("active", !isCamera);
-  document.getElementById("tab-camera").classList.toggle("active", isCamera);
-  isCamera ? startCamera() : stopCamera();
-};
-
-// ─── Camera ───────────────────────────────────────────
-async function startCamera() {
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
-      audio: false
-    });
-    const video = document.getElementById("video");
-    video.srcObject = stream;
-    videoTrack = stream.getVideoTracks()[0];
-    currentZoom = 1;
-    document.getElementById("zoom-slider").value = 1;
-    document.getElementById("zoom-label").textContent = "×1.0";
-    attachCameraEvents();
-  } catch (e) { alert("לא ניתן לגשת למצלמה: " + e.message); }
-}
-
-function stopCamera() {
-  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; videoTrack = null; }
-}
-
-window.flipCamera = async () => {
-  facingMode = facingMode === "environment" ? "user" : "environment";
-  stopCamera();
-  await startCamera();
-};
-
-window.setZoom = (val) => {
-  currentZoom = parseFloat(val);
-  document.getElementById("zoom-label").textContent = "×" + currentZoom.toFixed(1);
-  applyZoomToTrack(currentZoom);
-};
-
-function applyZoomToTrack(zoom) {
-  if (!videoTrack) return;
-  const caps = videoTrack.getCapabilities();
-  if (caps.zoom) {
-    const min = caps.zoom.min || 1;
-    const max = caps.zoom.max || 5;
-    videoTrack.applyConstraints({ advanced: [{ zoom: Math.min(Math.max(zoom, min), max) }] });
-  } else {
-    // fallback: CSS scale
-    document.getElementById("video").style.transform = `scale(${zoom})`;
-  }
-}
-
-// Tap to focus
-function attachCameraEvents() {
-  const wrap = document.getElementById("camera-wrap");
-  wrap.onclick = (e) => {
-    if (!videoTrack) return;
-    const rect = wrap.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = (e.clientY - rect.top)  / rect.height;
-    showFocusRing(e.clientX - rect.left, e.clientY - rect.top);
-    const caps = videoTrack.getCapabilities();
-    if (caps.focusMode && caps.focusMode.includes("manual")) {
-      videoTrack.applyConstraints({ advanced: [{ focusMode: "manual", focusDistance: 0 }] })
-        .then(() => videoTrack.applyConstraints({ advanced: [{ pointsOfInterest: [{ x, y }] }] }))
-        .catch(() => {});
-    }
+// ── save ──────────────────────────────────────────────
+async function saveReceipt(){
+  const msg=document.getElementById('save-msg');
+  const pre=parseFloat(document.getElementById('f-pre').value)||0;
+  const post=parseFloat(document.getElementById('f-post').value)||0;
+  if(!imgBlob){ msg.textContent='⚠️ יש לצרף תמונה'; return; }
+  if(!document.getElementById('f-type').value){ msg.textContent='⚠️ בחר סוג הוצאה'; return; }
+  msg.textContent='שומר...';
+  const reader=new FileReader();
+  reader.onload=()=>{
+    const rec={
+      id: Date.now(),
+      date: document.getElementById('f-date').value,
+      type: document.getElementById('f-type').value,
+      desc: document.getElementById('f-desc').value.trim(),
+      biz:  document.getElementById('f-biz').value.trim(),
+      inv:  document.getElementById('f-inv').value.trim(),
+      pre, post,
+      img: reader.result
+    };
+    receipts.unshift(rec);
+    persist(); resetForm();
+    msg.textContent='✅ נשמר!';
+    render(); updateSum();
   };
-
-  // Pinch to zoom (touch)
-  wrap.addEventListener("touchstart", (e) => {
-    if (e.touches.length === 2) {
-      pinchStart = getPinchDist(e);
-      pinchZoomStart = currentZoom;
-    }
-  }, { passive: true });
-
-  wrap.addEventListener("touchmove", (e) => {
-    if (e.touches.length === 2 && pinchStart) {
-      const dist  = getPinchDist(e);
-      const ratio = dist / pinchStart;
-      const newZ  = Math.min(Math.max(pinchZoomStart * ratio, 1), 5);
-      currentZoom = parseFloat(newZ.toFixed(1));
-      document.getElementById("zoom-slider").value = currentZoom;
-      document.getElementById("zoom-label").textContent = "×" + currentZoom.toFixed(1);
-      applyZoomToTrack(currentZoom);
-    }
-  }, { passive: true });
-
-  wrap.addEventListener("touchend", () => { pinchStart = null; }, { passive: true });
+  reader.readAsDataURL(imgBlob);
 }
 
-function getPinchDist(e) {
-  const dx = e.touches[0].clientX - e.touches[1].clientX;
-  const dy = e.touches[0].clientY - e.touches[1].clientY;
-  return Math.sqrt(dx * dx + dy * dy);
+function resetForm(){
+  ['f-date','f-type','f-desc','f-biz','f-inv','f-pre','f-post'].forEach(id=>
+    document.getElementById(id).value='');
+  document.getElementById('f-date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('preview').style.display='none';
+  document.getElementById('ocr-status').textContent='';
+  document.getElementById('file-in').value='';
+  imgBlob=null;
 }
 
-function showFocusRing(x, y) {
-  const ring = document.getElementById("focus-ring");
-  ring.style.left    = x + "px";
-  ring.style.top     = y + "px";
-  ring.style.display = "block";
-  ring.style.opacity = "1";
-  setTimeout(() => { ring.style.opacity = "0"; setTimeout(() => ring.style.display = "none", 400); }, 800);
+function deleteRec(id){
+  if(!confirm('למחוק?')) return;
+  receipts=receipts.filter(r=>r.id!==id);
+  persist(); render(); updateSum();
 }
 
-// Capture photo
-window.capturePhoto = () => {
-  const video  = document.getElementById("video");
-  const canvas = document.getElementById("canvas");
-  canvas.width  = video.videoWidth;
-  canvas.height = video.videoHeight;
-  canvas.getContext("2d").drawImage(video, 0, 0);
-  canvas.toBlob(blob => {
-    capturedBlob = blob;
-    const preview = document.getElementById("preview");
-    preview.src = URL.createObjectURL(blob);
-    preview.style.display = "block";
-  }, "image/jpeg", 0.92);
-  stopCamera();
-  document.getElementById("camera-section").style.display = "none";
-};
-
-// File chosen
-window.onFileChosen = (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  capturedBlob = file;
-  const preview = document.getElementById("preview");
-  preview.src = URL.createObjectURL(file);
-  preview.style.display = "block";
-};
-
-// ─── Upload ───────────────────────────────────────────
-window.uploadReceipt = async () => {
-  const name     = document.getElementById("receipt-name").value.trim();
-  const amount   = document.getElementById("receipt-amount").value.trim();
-  const category = document.getElementById("receipt-category").value;
-  const msg      = document.getElementById("upload-msg");
-
-  if (!capturedBlob || !name || !amount || !category) {
-    msg.textContent = "⚠️ מלא את כל השדות וצרף תמונה"; return;
-  }
-  msg.textContent = "מעלה...";
-  try {
-    const formData = new FormData();
-    formData.append("file", capturedBlob, "receipt.jpg");
-    formData.append("upload_preset", UPLOAD_PRESET);
-    const res  = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method: "POST", body: formData });
-    const data = await res.json();
-    if (!data.secure_url) throw new Error("שגיאת Cloudinary");
-    await addDoc(collection(db, "receipts"), {
-      userId: currentUser.uid, name, amount: parseFloat(amount),
-      category, imageUrl: data.secure_url, createdAt: new Date().toISOString()
-    });
-    msg.textContent = "✅ הקבלה נשמרה!";
-    ["receipt-name","receipt-amount"].forEach(id => document.getElementById(id).value = "");
-    document.getElementById("receipt-category").value = "";
-    document.getElementById("preview").style.display = "none";
-    document.getElementById("file-input").value = "";
-    capturedBlob = null;
-    switchTab("file");
-    loadReceipts();
-  } catch (e) { msg.textContent = "❌ שגיאה: " + e.message; }
-};
-
-// ─── Delete ───────────────────────────────────────────
-window.deleteReceipt = async (id) => {
-  if (!confirm("למחוק את הקבלה?")) return;
-  try { await deleteDoc(doc(db, "receipts", id)); loadReceipts(); }
-  catch (e) { alert("שגיאה במחיקה: " + e.message); }
-};
-
-// ─── Load & Filter ────────────────────────────────────
-async function loadReceipts() {
-  document.getElementById("receipts-list").innerHTML = "<p class='msg'>טוען...</p>";
-  try {
-    const snap = await getDocs(query(collection(db, "receipts"), where("userId", "==", currentUser.uid)));
-    allReceipts = [];
-    snap.forEach(d => allReceipts.push({ id: d.id, ...d.data() }));
-    allReceipts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    applyFilters();
-  } catch (e) {
-    document.getElementById("receipts-list").innerHTML = `<p class='msg error'>שגיאה: ${e.message}</p>`;
-  }
+function clearAll(){
+  if(!confirm('למחוק את כל הקבלות?')) return;
+  receipts=[]; persist(); render(); updateSum();
 }
 
-window.applyFilters = () => {
-  const search = document.getElementById("search-input").value.trim().toLowerCase();
-  const from   = document.getElementById("filter-from").value;
-  const to     = document.getElementById("filter-to").value;
-  const cat    = document.getElementById("filter-category").value;
-  filtered = allReceipts.filter(r => {
-    const date = r.createdAt.slice(0, 10);
-    return (!search || r.name.toLowerCase().includes(search))
-        && (!from   || date >= from)
-        && (!to     || date <= to)
-        && (!cat    || r.category === cat);
-  });
-  updateSummary(filtered);
-  renderList(filtered);
-};
+function persist(){ localStorage.setItem(STORE,JSON.stringify(receipts)); }
 
-window.clearFilters = () => {
-  ["search-input","filter-from","filter-to"].forEach(id => document.getElementById(id).value = "");
-  document.getElementById("filter-category").value = "";
-  applyFilters();
-};
-
-function updateSummary(list) {
-  const total = list.reduce((s, r) => s + r.amount, 0);
-  document.getElementById("s-count").textContent = list.length;
-  document.getElementById("s-total").textContent = `₪${total.toFixed(0)}`;
-  document.getElementById("s-avg").textContent   = list.length ? `₪${(total / list.length).toFixed(0)}` : "-";
-}
-
-function renderList(list) {
-  const el = document.getElementById("receipts-list");
-  if (!list.length) { el.innerHTML = "<p class='msg'>לא נמצאו קבלות</p>"; return; }
-  el.innerHTML = list.map(r => `
-    <div class="receipt-item">
-      <img src="${r.imageUrl}" alt="קבלה"/>
-      <div class="receipt-info">
-        <strong>${r.name}</strong>
-        <span class="cat-badge">${r.category || "ללא קטגוריה"}</span>
-        <p>💰 ₪${r.amount} &nbsp;|&nbsp; 📅 ${new Date(r.createdAt).toLocaleDateString("he-IL")}</p>
+// ── render list ───────────────────────────────────────
+function render(){
+  const q=document.getElementById('srch').value.toLowerCase();
+  const list=receipts.filter(r=>
+    r.biz.toLowerCase().includes(q)||r.desc.toLowerCase().includes(q)||r.type.toLowerCase().includes(q)
+  );
+  const el=document.getElementById('list');
+  if(!list.length){ el.innerHTML="<p class='msg'>אין קבלות</p>"; return; }
+  el.innerHTML=list.map(r=>`
+    <div class="rec-item">
+      <img src="${r.img}" alt="קבלה"/>
+      <div class="rec-info">
+        <strong>${r.biz||'(ללא שם)'}</strong>
+        <span class="badge">${r.type}</span>
+        <p>📅 ${r.date} | חשבונית: ${r.inv||'—'}</p>
+        <p>לפני מע"מ: ₪${r.pre.toFixed(2)} | אחרי: ₪${r.post.toFixed(2)}</p>
+        ${r.desc?`<p>📝 ${r.desc}</p>`:''}
       </div>
-      <button class="btn-delete" onclick="deleteReceipt('${r.id}')" title="מחק">🗑️</button>
-    </div>`).join("");
+      <button class="bd" onclick="deleteRec(${r.id})">🗑️</button>
+    </div>`).join('');
 }
 
-// ─── Export Excel ─────────────────────────────────────
-window.exportExcel = () => {
-  if (!filtered.length) { alert("אין קבלות לייצוא"); return; }
-  const rows = filtered.map(r => ({
-    "שם קבלה": r.name, "קטגוריה": r.category || "",
-    "סכום (₪)": r.amount,
-    "תאריך": new Date(r.createdAt).toLocaleDateString("he-IL"),
-    "קישור לתמונה": r.imageUrl
+function updateSum(){
+  document.getElementById('s-n').textContent=receipts.length;
+  document.getElementById('s-pre').textContent='₪'+receipts.reduce((s,r)=>s+r.pre,0).toFixed(0);
+  document.getElementById('s-post').textContent='₪'+receipts.reduce((s,r)=>s+r.post,0).toFixed(0);
+}
+
+// ── Excel export ──────────────────────────────────────
+function exportXL(){
+  if(!receipts.length){ alert('אין קבלות לייצוא'); return; }
+  const rows=receipts.map(r=>({
+    'תאריך הוצאה':       r.date,
+    'סוג הוצאה':         r.type,
+    'תיאור ההוצאה':      r.desc,
+    'שם בית העסק':       r.biz,
+    'מספר חשבונית':      r.inv,
+    'סכום לפני מע"מ':    r.pre,
+    'סכום אחרי מע"מ':   r.post
   }));
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "קבלות");
-  XLSX.writeFile(wb, "receipts.xlsx");
-};
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws['!cols']=[12,14,22,20,14,16,16].map(w=>({wch:w}));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'קבלות');
+  XLSX.writeFile(wb,'receipts.xlsx');
+}
 </script>
 </body>
 </html>
